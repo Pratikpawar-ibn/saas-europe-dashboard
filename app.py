@@ -31,7 +31,7 @@ SHEET_ID   = "1mxLi3pPzD4Oxp63gkOV6jqfizWJ4O7Wedykr8UBjPO8"
 SHEET_URL  = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 PORT       = int(os.environ.get("PORT", 5000))
 PER_PAGE   = 50
-REFRESH_S  = 10      # seconds between background data refreshes
+REFRESH_S  = 5       # seconds between background data refreshes
 
 COL_DROP   = "Rows from: Development:IT Firms US"
 CONTACT_COLS = [
@@ -102,10 +102,10 @@ def fetch_and_clean():
 
 
 def _background_loop():
-    """Refresh data every REFRESH_S seconds forever."""
+    """Refresh data every REFRESH_S seconds forever. Fetch first, then sleep."""
     while True:
-        time.sleep(REFRESH_S)
         fetch_and_clean()
+        time.sleep(REFRESH_S)
 
 
 # ── Bootstrap: initial fetch + start background thread ───────────────────────

@@ -1578,8 +1578,8 @@ async function init() {
   // Restore active page
   switchPage(state.page);
 
-  // Start silent refresh
-  setInterval(silentRefresh, 10_000);
+  // Start silent refresh every 5 seconds
+  setInterval(silentRefresh, 5_000);
 }
 
 init();
