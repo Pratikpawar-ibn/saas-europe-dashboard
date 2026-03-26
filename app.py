@@ -7,12 +7,14 @@ Fetches and cleans data in memory every 10 seconds.
 
 Endpoints
 ---------
-GET /                              dashboard.html
-GET /api/kpis                      KPI totals + last_updated
-GET /api/top-companies             top N companies by employee count
-GET /api/verticals                 contact distribution by vertical
-GET /api/contacts?page=&search=    paginated, searchable contact table
-GET /health                        Railway health check
+GET /                                    dashboard.html
+GET /api/kpis                            KPI totals + last_updated
+GET /api/top-companies                   top N companies by employee count
+GET /api/verticals                       contact distribution by vertical
+GET /api/contacts?page=&search=          paginated, searchable contact table
+GET /api/companies?page=&search=&sort=   paginated, searchable company table
+GET /api/job-titles                      top 10 job titles by count
+GET /health                              Railway health check
 """
 
 import os
@@ -37,6 +39,9 @@ CONTACT_COLS = [
     "Company Name", "Company Linkedin Url", "Company Domain",
     "Domain Suffix", "Vertical", "Offer", "Icp",
     "Short Description", "# Employees", "Domain Match",
+]
+COMPANY_COLS = [
+    "Company Name", "Company Domain", "Vertical", "# Employees", "Icp", "Offer",
 ]
 
 logging.basicConfig(
@@ -136,10 +141,11 @@ def api_kpis():
 
     comp_emp = df.groupby("Company Name")["# Employees"].max()
     return jsonify({
-        "total_companies": int(df["Company Name"].nunique()),
-        "total_employees": int(comp_emp.sum()),
-        "total_contacts":  len(df),
-        "last_updated":    ts,
+        "total_companies":  int(df["Company Name"].nunique()),
+        "total_employees":  int(comp_emp.sum()),
+        "total_contacts":   len(df),
+        "unique_verticals": int(df["Vertical"].nunique()),
+        "last_updated":     ts,
     })
 
 
@@ -205,6 +211,62 @@ def api_contacts():
         "page":     page,
         "pages":    pages,
         "per_page": PER_PAGE,
+    })
+
+
+@app.route("/api/companies")
+def api_companies():
+    df, _ = _get_df()
+    if df is None:
+        return jsonify({"error": "Data not loaded yet"}), 503
+
+    page   = max(1, int(request.args.get("page",  1)))
+    search = request.args.get("search", "").strip().lower()
+    sort   = request.args.get("sort",   "Company Name")
+    order  = request.args.get("order",  "asc")
+
+    avail = [c for c in COMPANY_COLS if c in df.columns]
+    comp  = (df[avail]
+             .sort_values("# Employees", ascending=False)
+             .drop_duplicates(subset=["Company Name"])
+             .reset_index(drop=True))
+
+    if search:
+        mask = comp.astype(str).apply(
+            lambda col: col.str.lower().str.contains(search, regex=False)
+        ).any(axis=1)
+        comp = comp[mask]
+
+    if sort in avail:
+        comp = comp.sort_values(sort, ascending=(order == "asc"))
+
+    total = len(comp)
+    pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+    page  = min(page, pages)
+    start = (page - 1) * PER_PAGE
+    rows  = comp.iloc[start:start + PER_PAGE].fillna("").values.tolist()
+
+    return jsonify({
+        "rows": rows, "total": total,
+        "page": page, "pages": pages, "per_page": PER_PAGE,
+    })
+
+
+@app.route("/api/job-titles")
+def api_job_titles():
+    df, _ = _get_df()
+    if df is None:
+        return jsonify({"error": "Data not loaded yet"}), 503
+
+    if "Job Title" not in df.columns:
+        return jsonify({"titles": [], "counts": []})
+
+    vc = df["Job Title"].value_counts().head(10)
+    total = len(df)
+    return jsonify({
+        "titles":  vc.index.tolist(),
+        "counts":  vc.tolist(),
+        "total":   total,
     })
 
 
