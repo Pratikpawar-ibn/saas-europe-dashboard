@@ -1553,7 +1553,7 @@ function renderMarket() {
    SILENT BACKGROUND REFRESH
 ══════════════════════════════════════════════════════════════════ */
 async function silentRefresh() {
-  await Promise.all([fetchKPIs(), fetchTopCompanies(), fetchVerticals()]);
+  await Promise.all([fetchKPIs(), fetchTopCompanies(), fetchVerticals(), fetchJobTitles()]);
   if (state.page === 'market') renderMarket();
 }
 
